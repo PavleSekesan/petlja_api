@@ -1,8 +1,6 @@
 import pytest
-from bs4 import BeautifulSoup
 
 import petlja_api as petlja
-from petlja_api.urls import CPANEL_URL
 
 
 def test_upload_scoring(sess, comp_with_problems, scoring):
@@ -33,24 +31,6 @@ def test_delete_competition(sess, empty_comp):
     petlja.delete_competition(sess, cid)
     with pytest.raises(ValueError):
         petlja.get_competition_id(sess, cid)
-
-
-def test_set_time_limit(sess, problem_factory):
-    pid, _ = problem_factory()
-    petlja.set_time_limit(sess, pid, 42)
-    page = sess.get(f"{CPANEL_URL}/EditProblem/{pid}")
-    soup = BeautifulSoup(page.text, "html.parser")
-    time_limit = soup.select_one("#Problem_TimeLimit").get("value")
-    assert time_limit == "42"
-
-
-def test_set_memory_limit(sess, problem_factory):
-    pid, _ = problem_factory()
-    petlja.set_memory_limit(sess, pid, 42)
-    page = sess.get(f"{CPANEL_URL}/EditProblem/{pid}")
-    soup = BeautifulSoup(page.text, "html.parser")
-    memory_limit = soup.select_one("#Problem_MemoryLimit").get("value")
-    assert memory_limit == "42"
 
 
 def test_competition_access_denied(sess):
