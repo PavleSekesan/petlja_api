@@ -1,5 +1,7 @@
 from bs4 import BeautifulSoup
 
+from dataclasses import dataclass
+
 from .auth import get_csrf_token
 from .urls import CPANEL_URL, PROBLEMS_URL
 
@@ -110,58 +112,96 @@ def upload_statement(session, problem_id, statement_path):
     # TODO: check for errors
 
 
-def _get_problem_settings_dict(
-    sess,
-    pid,
-    name=None,
-    time_limit_ms=1000,
-    memory_limit_mb=64,
-):
+@dataclass
+class ProblemMetadata:
+    name: str
+    time_limit_ms: str
+    memory_limit_mb: str
+    author: str
+    solution_author: str
+    contributors: str
+    origin: str
+    tags: str
+
+
+_inputname_to_metadata_attr_map = {
+    "Problem.Name": "name",
+    "Problem.TimeLimit": "time_limit_ms",
+    "Problem.MemoryLimit": "memory_limit_mb",
+    "Problem.Author": "author",
+    "Problem.SolAuthor": "solution_author",
+    "Problem.Contributors": "contributors",
+    "Problem.Origin": "origin",
+    "Problem.Tags": "tags",
+}
+
+
+def _problem_metadata_dict(sess, pid, metadata: ProblemMetadata):
     page = sess.get(f"{CPANEL_URL}/EditProblem/{pid}")
+    if page.status_code == 404:
+        raise ValueError(f"Problem with id {pid} does not exist")
     csrf_token = get_csrf_token(page.text)
-    if not name:
-        name = get_problem_name(sess, pid)
-    if not time_limit_ms:
-        time_limit_ms = 1000
-    if not memory_limit_mb:
-        memory_limit_mb = 64
 
-    return {
-        "Problem.Type": (None, "0"),
-        "Problem.Name": (None, name),
-        "Problem.TimeLimit": (None, str(time_limit_ms)),
-        "Problem.MemoryLimit": (None, str(memory_limit_mb)),
-        "Problem.Author": (None, ""),
-        "Problem.SolAuthor": (None, ""),
-        "Problem.Contributors": (None, ""),
-        "Problem.Origin": (None, ""),
-        "Problem.Tags": (None, ""),
-        "Problem.AdditionalMaterialTitle": (None, ""),
-        "Problem.AdditionalMaterialZip": (None, ""),
-        "PostAction": (None, "EditMetaInfo"),
-        "__RequestVerificationToken": (None, csrf_token),
-    }
+    dict = {}
+    for inputname, metadata_attr in _inputname_to_metadata_attr_map.items():
+        dict[inputname] = (None, getattr(metadata, metadata_attr))
 
-
-def set_time_limit(session, problem_id, time_limit_ms):
-    res = session.post(
-        f"{CPANEL_URL}/EditProblem/{problem_id}",
-        files=_get_problem_settings_dict(
-            session, problem_id, time_limit_ms=time_limit_ms
-        ),
+    dict.update(
+        {
+            # TODO Implement problem types (Standard, Output only, Functional) support
+            # currently defaults to Standard (type 0)
+            "Problem.Type": "0",
+            # TODO Implement additional material upload,
+            # this currently overwrites any existing additional material
+            "Problem.AdditionalMaterialTitle": (None, ""),
+            "Problem.AdditionalMaterialZip": (None, ""),
+            "PostAction": (None, "EditMetaInfo"),
+            "__RequestVerificationToken": (None, csrf_token),
+        }
     )
-    if res.status_code != 200:
-        raise RuntimeError(f"Failed setting time limit: {res.status_code} {res.text} ")
+
+    return dict
 
 
-def set_memory_limit(session, problem_id, memory_limit_mb):
+def _set_problem_metadata(session, problem_id, metadata: ProblemMetadata):
     res = session.post(
         f"{CPANEL_URL}/EditProblem/{problem_id}",
-        files=_get_problem_settings_dict(
-            session, problem_id, memory_limit_mb=memory_limit_mb
-        ),
+        files=_problem_metadata_dict(session, problem_id, metadata),
     )
     if res.status_code != 200:
         raise RuntimeError(
-            f"Failed setting memory limit: {res.status_code} {res.text} "
+            f"Failed setting problem metadata: {res.status_code} {res.text}"
         )
+
+
+def get_problem_metadata(session, problem_id):
+    res = session.get(f"{CPANEL_URL}/EditProblem/{problem_id}")
+    soup = BeautifulSoup(res.text, "html.parser")
+    inputs = soup.select("#settingsPanel fieldset input")
+
+    metadata_fields = {}
+    for inp in inputs:
+        field = _inputname_to_metadata_attr_map.get(inp["name"])
+        if field is None:
+            continue
+        metadata_fields[field] = inp["value"]
+
+    return ProblemMetadata(**metadata_fields)
+
+
+def set_time_limit(session, problem_id, time_limit_ms):
+    metadata = get_problem_metadata(session, problem_id)
+    metadata.time_limit_ms = time_limit_ms
+    try:
+        _set_problem_metadata(session, problem_id, metadata)
+    except RuntimeError as e:
+        raise RuntimeError("Failed setting time limit") from e
+
+
+def set_memory_limit(session, problem_id, memory_limit_mb):
+    metadata = get_problem_metadata(session, problem_id)
+    metadata.memory_limit_mb = memory_limit_mb
+    try:
+        _set_problem_metadata(session, problem_id, metadata)
+    except RuntimeError as e:
+        raise RuntimeError("Failed setting memory limit") from e
