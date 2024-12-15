@@ -66,7 +66,7 @@ def delete_problem(session, problem_id):
     )
 
 
-def check_testcase_upload(page):
+def _check_testcase_upload(page):
     soup = BeautifulSoup(page.text, "html.parser")
     error = soup.find("div", attrs={"class": "validation-summary-errors"})
     if error:
@@ -90,7 +90,7 @@ def upload_testcases(session, problem_id, testcases_path):
         )
     # Have to scrape the response page to check for errors
     # because the response is 302 even if there is an error
-    check_testcase_upload(resp)
+    _check_testcase_upload(resp)
 
 
 def upload_statement(session, problem_id, statement_path):
