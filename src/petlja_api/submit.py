@@ -10,7 +10,7 @@ from dataclasses import dataclass
 LANGUAGE_IDS = {
     ".c": 10,
     ".cs": 1,
-    ".cpp": 2,
+    ".cpp": 11,
     ".java": 3,
     ".m": 7,
     ".pas": 4,

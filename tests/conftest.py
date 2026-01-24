@@ -28,6 +28,7 @@ def empty_comp(sess):
     uid = uuid.uuid4().hex
     alias = f"testcomp{uid}"
     cid = petlja.create_competition(sess, "Test takmicenje", alias)
+    petlja.add_language(sess, cid, ".cpp")
     yield cid, alias
     petlja.delete_competition(sess, cid)
 
