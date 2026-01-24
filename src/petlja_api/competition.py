@@ -94,7 +94,7 @@ def delete_competition(session: requests.Session, competition_id):
         raise ValueError(f"Error deleting competition: {res.text}")
 
 
-def add_problem(session, competition_id, problem_id):
+def add_problem(session, competition_id, problem_id, sort_order):
     already_added = get_added_problem_ids(session, competition_id)
     if problem_id in already_added:
         return
@@ -107,7 +107,7 @@ def add_problem(session, competition_id, problem_id):
             "competitionId": competition_id,
             "problemId": problem_id,
             "name": problem_name,
-            # "sortOrder": 0, # Seems to be optional
+            "sortOrder": sort_order,
         },
     )
 

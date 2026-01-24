@@ -15,12 +15,19 @@ def sess():
 
 
 @pytest.fixture
-def created_prob(sess):
-    uid = uuid.uuid4().hex
-    alias = f"testprob{uid}"
-    pid = petlja.create_problem(sess, "Test zadatak", alias)
-    yield pid, alias
-    petlja.delete_problem(sess, pid)
+def problem_factory(sess):
+    created = []
+
+    def _create():
+        uid = uuid.uuid4().hex
+        alias = f"testprob{uid}"
+        pid = petlja.create_problem(sess, "Test zadatak", alias)
+        created.append(pid)
+        return pid, alias
+
+    yield _create
+    for pid in created:
+        petlja.delete_problem(sess, pid)
 
 
 @pytest.fixture
@@ -34,12 +41,13 @@ def empty_comp(sess):
 
 
 @pytest.fixture
-def comp_with_problems(sess, empty_comp, created_prob, scoring, testcases):
+def comp_with_problems(sess, empty_comp, problem_factory, scoring, testcases):
     cid, alias = empty_comp
-    pid, _ = created_prob
-    petlja.add_problem(sess, cid, pid)
-    petlja.upload_testcases(sess, pid, testcases)
-    petlja.upload_scoring(sess, cid, pid, scoring)
+    for i in range(2):
+        pid, _ = problem_factory()
+        petlja.add_problem(sess, cid, pid, sort_order=i)
+        petlja.upload_testcases(sess, pid, testcases)
+        petlja.upload_scoring(sess, cid, pid, scoring)
     return cid, alias
 
 

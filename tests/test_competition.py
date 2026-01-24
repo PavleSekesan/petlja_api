@@ -21,9 +21,9 @@ def test_get_competition_id_nonexistent(sess):
         petlja.get_competition_id(sess, "qurvoqireouqh")
 
 
-def test_submit_unallowed_lang(sess, comp_with_problems, created_prob, src_py):
+def test_submit_unallowed_lang(sess, comp_with_problems, problem_factory, src_py):
     cid, _ = comp_with_problems
-    pid, _ = created_prob
+    pid, _ = problem_factory()
     with pytest.raises(Exception):
         petlja.submit_solution(sess, cid, pid, src_py)
 
@@ -35,8 +35,8 @@ def test_delete_competition(sess, empty_comp):
         petlja.get_competition_id(sess, cid)
 
 
-def test_set_time_limit(sess, created_prob):
-    pid, _ = created_prob
+def test_set_time_limit(sess, problem_factory):
+    pid, _ = problem_factory()
     petlja.set_time_limit(sess, pid, 42)
     page = sess.get(f"{CPANEL_URL}/EditProblem/{pid}")
     soup = BeautifulSoup(page.text, "html.parser")
@@ -44,8 +44,8 @@ def test_set_time_limit(sess, created_prob):
     assert time_limit == "42"
 
 
-def test_set_memory_limit(sess, created_prob):
-    pid, _ = created_prob
+def test_set_memory_limit(sess, problem_factory):
+    pid, _ = problem_factory()
     petlja.set_memory_limit(sess, pid, 42)
     page = sess.get(f"{CPANEL_URL}/EditProblem/{pid}")
     soup = BeautifulSoup(page.text, "html.parser")
@@ -70,3 +70,10 @@ def test_remove_nonexistent_problem(sess, comp_with_problems):
     cid, _ = comp_with_problems
     with pytest.raises(ValueError):
         petlja.remove_problem(sess, cid, "123456789")
+
+
+def test_sort_order(sess, comp_with_problems):
+    cid, _ = comp_with_problems
+    data = petlja.competition._get_competition_data(sess, cid)
+    assert data["problems"][0]["sortOrder"] == 0
+    assert data["problems"][1]["sortOrder"] == 1
