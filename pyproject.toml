@@ -4,24 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "petlja_api"
-version = "0.3.0"
-authors = [
-  { name="Pavle Sekešan", email="pavlesekesan@gmail.com" },
-]
+version = "0.4.0"
+authors = [{ name = "Pavle Sekešan", email = "pavlesekesan@gmail.com" }]
 description = "A python library for interacting with the petlja.org API"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "beautifulsoup4~=4.0",
-    "requests~=2.0"
-]
+dependencies = ["beautifulsoup4~=4.0", "requests~=2.0"]
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-timeout",
-    "python-dotenv"
-]
+dev = ["pytest", "pytest-timeout", "python-dotenv"]
 
 [project.urls]
 "Homepage" = "https://github.com/PavleSekesan/petlja_api"
