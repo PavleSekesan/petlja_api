@@ -132,8 +132,7 @@ def _submit(session, competition_id, problem_id, source_path):
 def _get_submission_results(session, competition_id, submission_id):
     # Polling the server every x seconds
     # Better solution may exist
-    tries = 0
-    while tries < TIMEOUT:
+    for _ in range(TIMEOUT):
         submission_data = session.post(
             f"{ARENA_URL}/api/competition/submissions",
             json={
@@ -144,7 +143,7 @@ def _get_submission_results(session, competition_id, submission_id):
         )
         results = submission_data.json()["value"]["item1"][0]
         score = results["score"]
-        if score != "-":
+        if not results["isInProgress"] and score != "-":
             return results
         time.sleep(1)
 

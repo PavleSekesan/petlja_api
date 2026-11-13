@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "petlja_api"
-version = "0.4.1"
+version = "0.4.2"
 authors = [{ name = "Pavle Sekešan", email = "pavlesekesan@gmail.com" }]
 description = "A python library for interacting with the petlja.org API"
 readme = "README.md"
