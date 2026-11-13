@@ -1,9 +1,10 @@
 from getpass import getpass
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
-from .urls import ARENA_URL
+from .urls import ARENA_URL, CPANEL_URL, IDENTITY_URL
 
 
 def _get_credentials():
@@ -14,8 +15,22 @@ def _get_credentials():
 
 def get_csrf_token(page):
     soup = BeautifulSoup(page, "html.parser")
-    csrf_token = soup.find("input", {"name": "__RequestVerificationToken"}).get("value")
-    return csrf_token
+    token = soup.find("input", {"name": "__RequestVerificationToken"})
+    return token["value"]
+
+
+def _login_form(page):
+    password = BeautifulSoup(page.text, "html.parser").find(
+        "input", {"name": "Password"}
+    )
+    return password.find_parent("form") if password is not None else None
+
+
+def _check_signin(page):
+    """Check the response after sign-in redirects have completed."""
+    page.raise_for_status()
+    if _login_form(page) is not None:
+        raise PermissionError("Petlja login failed: check username and password")
 
 
 def login(username=None, password=None):
@@ -23,26 +38,27 @@ def login(username=None, password=None):
         username, password = _get_credentials()
 
     session = requests.Session()
-    mainpage = session.get(ARENA_URL)
-    csrf_token = get_csrf_token(mainpage.text)
-    login_res = session.post(
-        f"{ARENA_URL}/sr-Latn-RS/Account/Login",
-        data={
-            "LoginViewModel.UserNameOrEmail": username,
-            "LoginViewModel.Password": password,
-            "__RequestVerificationToken": csrf_token,
-            "LoginViewModel.RememberMe": "false",
-        },
-        allow_redirects=False,
-    )
+    try:
+        page = session.get(IDENTITY_URL)
+        page.raise_for_status()
+        form = _login_form(page)
+        target = urljoin(page.url, form.get("action", ""))
+        fields = {
+            "UserNameOrEmail": username,
+            "Password": password,
+            "RememberMe": "false",
+            "__RequestVerificationToken": get_csrf_token(str(form)),
+        }
+        page = session.post(target, data=fields)
+        _check_signin(page)
 
-    if login_res.status_code == 302:
-        jwt = session.cookies["PetljaCookie"]
-        session.headers.update({"Authorization": f"Bearer {jwt}"})
+        # Use the identity session to establish each site's own login cookies.
+        page = session.get(CPANEL_URL)
+        _check_signin(page)
+        page = session.get(f"{ARENA_URL}/sr-Latn-RS/Account/Login")
+        _check_signin(page)
+
         return session
-    elif login_res.status_code == 200:
-        raise PermissionError("Wrong username or password")
-    else:
-        raise RuntimeError(
-            f"Unknown error: login failed with status code {login_res.status_code}"
-        )
+    except Exception:
+        session.close()
+        raise
